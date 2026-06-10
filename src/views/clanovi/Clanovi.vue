@@ -1,14 +1,24 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import DialogBrisanje from '@/components/DialogBrisanje.vue'
+import StranicaKartica from '@/components/StranicaKartica.vue'
+import TablicaAkcije from '@/components/TablicaAkcije.vue'
+import { API_URL, buildQuery } from '@/config/api'
+import { useSnackbar } from '@/composables/useSnackbar'
 
-const API_URL = 'http://localhost:5005'
 const router = useRouter()
+const route = useRoute()
+const { uspjeh } = useSnackbar()
 const loading = ref(false)
-const prikazi_dialog_brisanje = ref(false)
+const prikazi_dialog = ref(false)
 const clanovi = ref<any[]>([])
-const clan_za_brisanje = ref<any>(null)
+const za_brisanje = ref<any>(null)
+const page = ref(1)
+const per_page = ref(10)
+const total = ref(0)
 const pretraga = ref('')
+let timer: ReturnType<typeof setTimeout> | null = null
 
 const headers = [
   { title: 'ID', value: 'id' },
@@ -19,68 +29,121 @@ const headers = [
   { title: 'Akcije', key: 'actions', sortable: false },
 ]
 
-async function dohvatiClanove() {
+async function dohvati() {
   loading.value = true
-  try {
-    const response = await fetch(`${API_URL}/clanovi?q=${encodeURIComponent(pretraga.value)}`)
-    clanovi.value = await response.json()
-  } catch (error) {
-    console.log(error)
-  }
+  const query = buildQuery({
+    page: page.value,
+    per_page: per_page.value,
+    q: pretraga.value,
+  })
+  const response = await fetch(`${API_URL}/clanovi${query}`)
+  const data = await response.json()
+  clanovi.value = data.items
+  page.value = data.page
+  per_page.value = data.per_page
+  total.value = data.total
   loading.value = false
+}
+
+function pretraziDebounced() {
+  if (timer) clearTimeout(timer)
+  timer = setTimeout(() => {
+    page.value = 1
+    dohvati()
+  }, 350)
+}
+
+async function promijeniOpcije(opcije: any) {
+  page.value = opcije.page
+  per_page.value = opcije.itemsPerPage
+  await dohvati()
 }
 
 async function obrisi() {
-  if (!clan_za_brisanje.value) return
+  if (!za_brisanje.value) return
   loading.value = true
-  await fetch(`${API_URL}/clanovi/${clan_za_brisanje.value.id}`, { method: 'DELETE' })
-  await dohvatiClanove()
+  await fetch(`${API_URL}/clanovi/${za_brisanje.value.id}`, { method: 'DELETE' })
+  uspjeh('Član je uspješno obrisan.')
+  await dohvati()
   loading.value = false
-  prikazi_dialog_brisanje.value = false
+  prikazi_dialog.value = false
 }
 
-onMounted(dohvatiClanove)
+onMounted(async () => {
+  await dohvati()
+  if (route.query.obavijest) {
+    uspjeh(String(route.query.obavijest))
+    router.replace({ query: {} })
+  }
+})
 </script>
 
 <template>
-  <v-card>
-    <v-card-title class="d-flex align-center">
-      Članovi
-      <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="router.push('/clanovi/dodaj')">Dodaj</v-btn>
-    </v-card-title>
-    <v-card-text>
-      <v-text-field
-        v-model="pretraga"
-        label="Pretraži članove"
-        prepend-inner-icon="mdi-magnify"
-        clearable
-        class="mb-4"
-        @update:model-value="dohvatiClanove"
-      />
-      <v-data-table :headers="headers" :items="clanovi" :loading="loading">
-        <template #item.actions="{ item }">
-          <v-btn icon="mdi-eye" size="small" variant="text" @click="router.push(`/clanovi/${item.id}`)" />
-          <v-btn icon="mdi-pencil" size="small" variant="text" @click="router.push(`/clanovi/${item.id}/uredi`)" />
-          <v-btn
-            icon="mdi-delete"
-            size="small"
-            variant="text"
-            @click="clan_za_brisanje = item; prikazi_dialog_brisanje = true"
+  <StranicaKartica
+    naslov="Članovi"
+    ikona="mdi-account-group"
+    @dodaj="router.push('/clanovi/dodaj')"
+  >
+    <div class="filter-box">
+      <v-row dense>
+        <v-col
+          cols="12"
+          md="6"
+        >
+          <v-text-field
+            v-model="pretraga"
+            label="Pretraži članove"
+            placeholder="Ime, prezime, email..."
+            prepend-inner-icon="mdi-magnify"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            @update:model-value="pretraziDebounced"
           />
-        </template>
-      </v-data-table>
-    </v-card-text>
-  </v-card>
-  <v-dialog v-model="prikazi_dialog_brisanje" max-width="500">
-    <v-card>
-      <v-card-title>Potvrda brisanja</v-card-title>
-      <v-card-text>Jeste li sigurni da želite obrisati člana?</v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="prikazi_dialog_brisanje = false">Odustani</v-btn>
-        <v-btn color="red" :loading="loading" @click="obrisi">Obriši</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+        </v-col>
+        <v-col
+          cols="12"
+          md="6"
+          class="d-flex align-center"
+        >
+          <v-btn
+            variant="tonal"
+            block
+            prepend-icon="mdi-filter-off"
+            @click="pretraga = ''; page = 1; dohvati()"
+          >
+            Očisti pretragu
+          </v-btn>
+        </v-col>
+      </v-row>
+    </div>
+
+    <v-data-table-server
+      v-model:items-per-page="per_page"
+      v-model:page="page"
+      :headers="headers"
+      :items="clanovi"
+      :items-length="total"
+      :loading="loading"
+      class="tablica-stil"
+      hover
+      @update:options="promijeniOpcije"
+    >
+      <template #item.actions="{ item }">
+        <TablicaAkcije
+          :on-pregled="() => router.push(`/clanovi/${item.id}`)"
+          :on-uredi="() => router.push(`/clanovi/${item.id}/uredi`)"
+          :on-obrisi="() => { za_brisanje = item; prikazi_dialog = true }"
+        />
+      </template>
+    </v-data-table-server>
+  </StranicaKartica>
+
+  <DialogBrisanje
+    v-model="prikazi_dialog"
+    poruka="Jeste li sigurni da želite obrisati člana?"
+    :loading="loading"
+    @potvrdi="obrisi"
+  />
 </template>

@@ -1,17 +1,26 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import DialogBrisanje from '@/components/DialogBrisanje.vue'
+import StranicaKartica from '@/components/StranicaKartica.vue'
+import TablicaAkcije from '@/components/TablicaAkcije.vue'
+import { API_URL, buildQuery } from '@/config/api'
+import { useSnackbar } from '@/composables/useSnackbar'
 
-const API_URL = 'http://localhost:5005'
 const router = useRouter()
+const route = useRoute()
+const { uspjeh } = useSnackbar()
 const loading = ref(false)
-const prikazi_dialog_brisanje = ref(false)
+const prikazi_dialog = ref(false)
 const knjige = ref<any[]>([])
-const knjiga_za_brisanje = ref<any>(null)
+const za_brisanje = ref<any>(null)
+const autori = ref<any[]>([])
 const page = ref(1)
 const per_page = ref(10)
 const total = ref(0)
 const pretraga = ref('')
+const filter_autor = ref<number | null>(null)
+let timer: ReturnType<typeof setTimeout> | null = null
 
 const headers = [
   { title: 'ID', value: 'id' },
@@ -22,98 +31,152 @@ const headers = [
   { title: 'Akcije', key: 'actions', sortable: false },
 ]
 
-async function dohvatiKnjige() {
+async function dohvati() {
   loading.value = true
-  try {
-    const response = await fetch(
-      `${API_URL}/knjige?page=${page.value}&per_page=${per_page.value}&q=${encodeURIComponent(pretraga.value)}`,
-    )
-    const data = await response.json()
-    knjige.value = data.items
-    page.value = data.page
-    per_page.value = data.per_page
-    total.value = data.total
-  } catch (error) {
-    console.log(error)
-  }
+  const query = buildQuery({
+    page: page.value,
+    per_page: per_page.value,
+    q: pretraga.value,
+    autor_id: filter_autor.value,
+  })
+  const response = await fetch(`${API_URL}/knjige${query}`)
+  const data = await response.json()
+  knjige.value = data.items
+  page.value = data.page
+  per_page.value = data.per_page
+  total.value = data.total
   loading.value = false
 }
 
-async function pretrazi() {
+async function dohvatiAutore() {
+  const response = await fetch(`${API_URL}/autori-dropdown`)
+  autori.value = await response.json()
+}
+
+function pretraziDebounced() {
+  if (timer) clearTimeout(timer)
+  timer = setTimeout(() => {
+    page.value = 1
+    dohvati()
+  }, 350)
+}
+
+function promijeniFilter() {
   page.value = 1
-  await dohvatiKnjige()
+  dohvati()
 }
 
 async function promijeniOpcije(opcije: any) {
   page.value = opcije.page
   per_page.value = opcije.itemsPerPage
-  await dohvatiKnjige()
-}
-
-function otvoriBrisanje(item: any) {
-  knjiga_za_brisanje.value = item
-  prikazi_dialog_brisanje.value = true
+  await dohvati()
 }
 
 async function obrisi() {
-  if (!knjiga_za_brisanje.value) return
+  if (!za_brisanje.value) return
   loading.value = true
-  try {
-    await fetch(`${API_URL}/knjige/${knjiga_za_brisanje.value.id}`, { method: 'DELETE' })
-    await dohvatiKnjige()
-  } catch (error) {
-    console.log(error)
-  }
+  await fetch(`${API_URL}/knjige/${za_brisanje.value.id}`, { method: 'DELETE' })
+  uspjeh('Knjiga je uspješno obrisana.')
+  await dohvati()
   loading.value = false
-  prikazi_dialog_brisanje.value = false
-  knjiga_za_brisanje.value = null
+  prikazi_dialog.value = false
 }
 
-onMounted(dohvatiKnjige)
+onMounted(async () => {
+  await dohvatiAutore()
+  await dohvati()
+  if (route.query.obavijest) {
+    uspjeh(String(route.query.obavijest))
+    router.replace({ query: {} })
+  }
+})
+
+watch(filter_autor, promijeniFilter)
 </script>
 
 <template>
-  <v-card>
-    <v-card-title class="d-flex align-center">
-      Knjige
-      <v-spacer />
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="router.push('/knjige/dodaj')">Dodaj</v-btn>
-    </v-card-title>
-    <v-card-text>
-      <v-text-field
-        v-model="pretraga"
-        label="Pretraži knjige"
-        prepend-inner-icon="mdi-magnify"
-        clearable
-        class="mb-4"
-        @update:model-value="pretrazi"
-      />
-      <v-data-table-server
-        v-model:items-per-page="per_page"
-        v-model:page="page"
-        :headers="headers"
-        :items="knjige"
-        :items-length="total"
-        :loading="loading"
-        @update:options="promijeniOpcije"
-      >
-        <template #item.actions="{ item }">
-          <v-btn icon="mdi-eye" size="small" variant="text" @click="router.push(`/knjige/${item.id}`)" />
-          <v-btn icon="mdi-pencil" size="small" variant="text" @click="router.push(`/knjige/${item.id}/uredi`)" />
-          <v-btn icon="mdi-delete" size="small" variant="text" @click="otvoriBrisanje(item)" />
-        </template>
-      </v-data-table-server>
-    </v-card-text>
-  </v-card>
-  <v-dialog v-model="prikazi_dialog_brisanje" max-width="500">
-    <v-card>
-      <v-card-title>Potvrda brisanja</v-card-title>
-      <v-card-text>Jeste li sigurni da želite obrisati knjigu?</v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="prikazi_dialog_brisanje = false">Odustani</v-btn>
-        <v-btn color="red" :loading="loading" @click="obrisi">Obriši</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+  <StranicaKartica
+    naslov="Knjige"
+    ikona="mdi-book"
+    @dodaj="router.push('/knjige/dodaj')"
+  >
+    <div class="filter-box">
+      <v-row dense>
+        <v-col
+          cols="12"
+          md="6"
+        >
+          <v-text-field
+            v-model="pretraga"
+            label="Pretraži knjige"
+            placeholder="Naslov, ISBN, autor..."
+            prepend-inner-icon="mdi-magnify"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+            @update:model-value="pretraziDebounced"
+          />
+        </v-col>
+        <v-col
+          cols="12"
+          md="3"
+        >
+          <v-select
+            v-model="filter_autor"
+            :items="autori"
+            item-title="title"
+            item-value="value"
+            label="Filtriraj autora"
+            prepend-inner-icon="mdi-account-edit"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            clearable
+          />
+        </v-col>
+        <v-col
+          cols="12"
+          md="3"
+          class="d-flex align-center"
+        >
+          <v-btn
+            variant="tonal"
+            block
+            prepend-icon="mdi-filter-off"
+            @click="pretraga = ''; filter_autor = null; promijeniFilter()"
+          >
+            Očisti
+          </v-btn>
+        </v-col>
+      </v-row>
+    </div>
+
+    <v-data-table-server
+      v-model:items-per-page="per_page"
+      v-model:page="page"
+      :headers="headers"
+      :items="knjige"
+      :items-length="total"
+      :loading="loading"
+      class="tablica-stil"
+      hover
+      @update:options="promijeniOpcije"
+    >
+      <template #item.actions="{ item }">
+        <TablicaAkcije
+          :on-pregled="() => router.push(`/knjige/${item.id}`)"
+          :on-uredi="() => router.push(`/knjige/${item.id}/uredi`)"
+          :on-obrisi="() => { za_brisanje = item; prikazi_dialog = true }"
+        />
+      </template>
+    </v-data-table-server>
+  </StranicaKartica>
+
+  <DialogBrisanje
+    v-model="prikazi_dialog"
+    poruka="Jeste li sigurni da želite obrisati knjigu?"
+    :loading="loading"
+    @potvrdi="obrisi"
+  />
 </template>

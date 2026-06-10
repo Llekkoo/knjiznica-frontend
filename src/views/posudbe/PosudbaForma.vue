@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import DatePicker from '@/components/DatePicker.vue'
+import FormaOmot from '@/components/FormaOmot.vue'
+import { API_URL } from '@/config/api'
 
-const API_URL = 'http://localhost:5005'
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const knjige = ref<any[]>([])
 const clanovi = ref<any[]>([])
-
 const posudba = reactive({
   datum_posudbe: '',
   datum_vracanja: '',
@@ -16,7 +17,6 @@ const posudba = reactive({
   knjiga_id: '',
   clan_id: '',
 })
-
 const jeUredivanje = computed(() => !!route.params.id)
 const naslov = computed(() => (jeUredivanje.value ? 'Uredi posudbu' : 'Dodaj posudbu'))
 
@@ -33,16 +33,11 @@ async function dohvati() {
   if (!route.params.id) return
   loading.value = true
   const response = await fetch(`${API_URL}/posudbe/${route.params.id}`)
-  const data = await response.json()
-  Object.assign(posudba, {
-    ...data,
-    knjiga_id: data.knjiga_id,
-    clan_id: data.clan_id,
-  })
+  Object.assign(posudba, await response.json())
   loading.value = false
 }
 
-function pripremiPodatke() {
+function pripremi() {
   return {
     datum_posudbe: posudba.datum_posudbe,
     datum_vracanja: posudba.datum_vracanja || null,
@@ -54,16 +49,17 @@ function pripremiPodatke() {
 
 async function spremi() {
   loading.value = true
-  const url = jeUredivanje.value
-    ? `${API_URL}/posudbe/${route.params.id}`
-    : `${API_URL}/posudbe`
+  const url = jeUredivanje.value ? `${API_URL}/posudbe/${route.params.id}` : `${API_URL}/posudbe`
   const method = jeUredivanje.value ? 'PUT' : 'POST'
   await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(pripremiPodatke()),
+    body: JSON.stringify(pripremi()),
   })
-  router.push('/posudbe')
+  router.push({
+    path: '/posudbe',
+    query: { obavijest: jeUredivanje.value ? 'Posudba je ažurirana.' : 'Posudba je dodana.' },
+  })
   loading.value = false
 }
 
@@ -74,30 +70,73 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-card max-width="600">
-    <v-card-title>{{ naslov }}</v-card-title>
-    <v-card-text>
-      <v-select
-        v-model="posudba.knjiga_id"
-        :items="knjige"
-        item-title="title"
-        item-value="value"
-        label="Knjiga"
-      />
-      <v-select
-        v-model="posudba.clan_id"
-        :items="clanovi"
-        item-title="title"
-        item-value="value"
-        label="Član"
-      />
-      <v-text-field v-model="posudba.datum_posudbe" label="Datum posudbe (YYYY-MM-DD)" />
-      <v-text-field v-model="posudba.datum_vracanja" label="Datum vraćanja (opcionalno)" />
-      <v-switch v-model="posudba.aktivna" label="Aktivna posudba" color="primary" />
-    </v-card-text>
-    <v-card-actions>
-      <v-btn variant="text" @click="router.push('/posudbe')">Odustani</v-btn>
-      <v-btn color="primary" :loading="loading" @click="spremi">Spremi</v-btn>
-    </v-card-actions>
-  </v-card>
+  <FormaOmot
+    :naslov="naslov"
+    ikona="mdi-book-arrow-right"
+  >
+    <v-select
+      v-model="posudba.knjiga_id"
+      :items="knjige"
+      item-title="title"
+      item-value="value"
+      label="Knjiga"
+      prepend-inner-icon="mdi-book"
+      variant="outlined"
+      density="comfortable"
+    />
+    <v-select
+      v-model="posudba.clan_id"
+      :items="clanovi"
+      item-title="title"
+      item-value="value"
+      label="Član knjižnice"
+      prepend-inner-icon="mdi-account"
+      variant="outlined"
+      density="comfortable"
+    />
+    <DatePicker
+      v-model="posudba.datum_posudbe"
+      label="Datum posudbe"
+    />
+    <DatePicker
+      v-model="posudba.datum_vracanja"
+      label="Datum vraćanja"
+    />
+    <v-switch
+      v-model="posudba.aktivna"
+      label="Aktivna posudba"
+      color="success"
+      prepend-icon="mdi-book-check"
+      hide-details
+    />
+
+    <template #akcije>
+      <v-tooltip text="Vrati se na listu">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            variant="text"
+            prepend-icon="mdi-arrow-left"
+            @click="router.push('/posudbe')"
+          >
+            Odustani
+          </v-btn>
+        </template>
+      </v-tooltip>
+      <v-spacer />
+      <v-tooltip text="Spremi u bazu">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            color="primary"
+            :loading="loading"
+            prepend-icon="mdi-content-save"
+            @click="spremi"
+          >
+            Spremi
+          </v-btn>
+        </template>
+      </v-tooltip>
+    </template>
+  </FormaOmot>
 </template>

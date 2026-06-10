@@ -1,0 +1,84 @@
+.v-main {
+  background-color: #f0ebe3;
+  background-image:
+    linear-gradient(135deg, rgba(26, 77, 124, 0.04) 0%, transparent 50%),
+    linear-gradient(225deg, rgba(201, 162, 39, 0.06) 0%, transparent 50%),
+    url('/knjiznica-pozadina.svg');
+  background-size: auto, auto, 400px 400px;
+  background-repeat: no-repeat, no-repeat, repeat;
+  min-height: 100vh;
+}
+
+.app-bar-gradient {
+  background: linear-gradient(90deg, #1a4d7c 0%, #2569a8 60%, #1a4d7c 100%) !important;
+}
+
+.filter-box {
+  background: linear-gradient(180deg, #faf7f2 0%, #f5f0e8 100%);
+  border: 1px solid #d4c4a8;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(93, 64, 55, 0.08);
+}
+
+.kartica {
+  border-radius: 12px;
+  border: 1px solid rgba(26, 77, 124, 0.1);
+  overflow: hidden;
+}
+
+.kartica-naslov {
+  background: linear-gradient(90deg, #1a4d7c 0%, #2d6a9f 100%);
+  border-radius: 0;
+}
+
+.hero-banner {
+  background: linear-gradient(135deg, #1a4d7c 0%, #2d6a9f 50%, #1a4d7c 100%);
+  border-radius: 12px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-banner::after {
+  content: '';
+  position: absolute;
+  right: -20px;
+  top: -20px;
+  width: 200px;
+  height: 200px;
+  background: url('/knjiznica-pozadina.svg') center/cover;
+  opacity: 0.2;
+  border-radius: 50%;
+}
+
+.stat-kartica {
+  border-radius: 12px;
+  border: 1px solid rgba(26, 77, 124, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-kartica:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(26, 77, 124, 0.15);
+}
+
+.dekoracija-knjige {
+  position: absolute;
+  opacity: 0.12;
+  font-size: 120px;
+  color: #c9a227;
+  pointer-events: none;
+}
+
+.app-footer {
+  background: linear-gradient(180deg, #faf7f2 0%, #ebe4d8 100%);
+  border-top: 2px solid #c9a227;
+}
+
+.tablica-stil .v-data-table__thead th {
+  background: rgba(26, 77, 124, 0.08) !important;
+  color: #1a4d7c !important;
+  font-weight: 600 !important;
+}

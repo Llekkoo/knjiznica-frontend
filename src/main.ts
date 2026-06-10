@@ -5,6 +5,7 @@ import { registerPlugins } from '@/plugins'
 import App from './App.vue'
 
 import 'unfonts.css'
+import '@/assets/app.css'
 import router from "@/routes.ts";
 
 const app = createApp(App).use(router)

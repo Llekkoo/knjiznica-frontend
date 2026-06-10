@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import FormaOmot from '@/components/FormaOmot.vue'
+import { API_URL } from '@/config/api'
 
-const API_URL = 'http://localhost:5005'
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const autori = ref<any[]>([])
-
 const knjiga = reactive({ naslov: '', isbn: '', godina: '', autor_id: '' })
 const jeUredivanje = computed(() => !!route.params.id)
 const naslov = computed(() => (jeUredivanje.value ? 'Uredi knjigu' : 'Dodaj knjigu'))
@@ -17,7 +17,7 @@ async function dohvatiAutore() {
   autori.value = await response.json()
 }
 
-async function dohvatiKnjigu() {
+async function dohvati() {
   if (!route.params.id) return
   loading.value = true
   const response = await fetch(`${API_URL}/knjige/${route.params.id}`)
@@ -25,7 +25,7 @@ async function dohvatiKnjigu() {
   loading.value = false
 }
 
-function pripremiPodatke() {
+function pripremi() {
   return {
     naslov: knjiga.naslov,
     isbn: knjiga.isbn,
@@ -36,44 +36,92 @@ function pripremiPodatke() {
 
 async function spremi() {
   loading.value = true
-  const url = jeUredivanje.value
-    ? `${API_URL}/knjige/${route.params.id}`
-    : `${API_URL}/knjige`
+  const url = jeUredivanje.value ? `${API_URL}/knjige/${route.params.id}` : `${API_URL}/knjige`
   const method = jeUredivanje.value ? 'PUT' : 'POST'
   await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(pripremiPodatke()),
+    body: JSON.stringify(pripremi()),
   })
-  router.push('/knjige')
+  router.push({
+    path: '/knjige',
+    query: { obavijest: jeUredivanje.value ? 'Knjiga je ažurirana.' : 'Knjiga je dodana.' },
+  })
   loading.value = false
 }
 
 onMounted(async () => {
   await dohvatiAutore()
-  await dohvatiKnjigu()
+  await dohvati()
 })
 </script>
 
 <template>
-  <v-card max-width="600">
-    <v-card-title>{{ naslov }}</v-card-title>
-    <v-card-text>
-      <v-text-field v-model="knjiga.naslov" label="Naslov" />
-      <v-text-field v-model="knjiga.isbn" label="ISBN" />
-      <v-text-field v-model="knjiga.godina" label="Godina izdanja" type="number" />
-      <v-select
-        v-model="knjiga.autor_id"
-        :items="autori"
-        item-title="title"
-        item-value="value"
-        label="Autor"
-        clearable
-      />
-    </v-card-text>
-    <v-card-actions>
-      <v-btn variant="text" @click="router.push('/knjige')">Odustani</v-btn>
-      <v-btn color="primary" :loading="loading" @click="spremi">Spremi</v-btn>
-    </v-card-actions>
-  </v-card>
+  <FormaOmot
+    :naslov="naslov"
+    ikona="mdi-book"
+  >
+    <v-text-field
+      v-model="knjiga.naslov"
+      label="Naslov knjige"
+      prepend-inner-icon="mdi-book-open-page-variant"
+      variant="outlined"
+      density="comfortable"
+    />
+    <v-text-field
+      v-model="knjiga.isbn"
+      label="ISBN"
+      prepend-inner-icon="mdi-barcode"
+      variant="outlined"
+      density="comfortable"
+    />
+    <v-text-field
+      v-model="knjiga.godina"
+      label="Godina izdanja"
+      type="number"
+      prepend-inner-icon="mdi-calendar"
+      variant="outlined"
+      density="comfortable"
+    />
+    <v-select
+      v-model="knjiga.autor_id"
+      :items="autori"
+      item-title="title"
+      item-value="value"
+      label="Autor"
+      prepend-inner-icon="mdi-account-edit"
+      variant="outlined"
+      density="comfortable"
+      clearable
+    />
+
+    <template #akcije>
+      <v-tooltip text="Vrati se na listu">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            variant="text"
+            prepend-icon="mdi-arrow-left"
+            @click="router.push('/knjige')"
+          >
+            Odustani
+          </v-btn>
+        </template>
+      </v-tooltip>
+      <v-spacer />
+      <v-tooltip text="Spremi u bazu">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            color="primary"
+            :loading="loading"
+            prepend-icon="mdi-content-save"
+            @click="spremi"
+          >
+            Spremi
+          </v-btn>
+        </template>
+      </v-tooltip>
+    </template>
+  </FormaOmot>
 </template>

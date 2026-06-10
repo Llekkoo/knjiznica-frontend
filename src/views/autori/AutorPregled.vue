@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import PregledOmot from '@/components/PregledOmot.vue'
+import { API_URL } from '@/config/api'
 
-const API_URL = 'http://localhost:5005'
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
@@ -10,12 +11,8 @@ const autor = reactive({ id: '', ime: '', prezime: '', drzava: '' })
 
 async function dohvati() {
   loading.value = true
-  try {
-    const response = await fetch(`${API_URL}/autori/${route.params.id}`)
-    Object.assign(autor, await response.json())
-  } catch (error) {
-    console.log(error)
-  }
+  const response = await fetch(`${API_URL}/autori/${route.params.id}`)
+  Object.assign(autor, await response.json())
   loading.value = false
 }
 
@@ -23,20 +20,42 @@ onMounted(dohvati)
 </script>
 
 <template>
-  <v-card max-width="600">
-    <v-card-title class="d-flex align-center">
-      Pregled autora
-      <v-spacer />
-      <v-btn color="primary" @click="router.push(`/autori/${autor.id}/uredi`)">Uredi</v-btn>
-    </v-card-title>
-    <v-card-text v-if="!loading">
-      <p><strong>ID:</strong> {{ autor.id }}</p>
-      <p><strong>Ime:</strong> {{ autor.ime }}</p>
-      <p><strong>Prezime:</strong> {{ autor.prezime }}</p>
-      <p><strong>Država:</strong> {{ autor.drzava }}</p>
-    </v-card-text>
-    <v-card-actions>
-      <v-btn variant="text" @click="router.push('/autori')">Natrag</v-btn>
-    </v-card-actions>
-  </v-card>
+  <PregledOmot
+    naslov="Pregled autora"
+    ikona="mdi-account-edit"
+    :loading="loading"
+    @uredi="router.push(`/autori/${autor.id}/uredi`)"
+  >
+    <v-list>
+      <v-list-item prepend-icon="mdi-identifier">
+        <v-list-item-title>ID</v-list-item-title>
+        <v-list-item-subtitle>{{ autor.id }}</v-list-item-subtitle>
+      </v-list-item>
+      <v-divider />
+      <v-list-item prepend-icon="mdi-account">
+        <v-list-item-title>Ime</v-list-item-title>
+        <v-list-item-subtitle>{{ autor.ime }}</v-list-item-subtitle>
+      </v-list-item>
+      <v-divider />
+      <v-list-item prepend-icon="mdi-account-outline">
+        <v-list-item-title>Prezime</v-list-item-title>
+        <v-list-item-subtitle>{{ autor.prezime }}</v-list-item-subtitle>
+      </v-list-item>
+      <v-divider />
+      <v-list-item prepend-icon="mdi-earth">
+        <v-list-item-title>Država</v-list-item-title>
+        <v-list-item-subtitle>{{ autor.drzava || '—' }}</v-list-item-subtitle>
+      </v-list-item>
+    </v-list>
+
+    <template #akcije>
+      <v-btn
+        variant="text"
+        prepend-icon="mdi-arrow-left"
+        @click="router.push('/autori')"
+      >
+        Natrag
+      </v-btn>
+    </template>
+  </PregledOmot>
 </template>
